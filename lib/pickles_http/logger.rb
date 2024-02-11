@@ -1,7 +1,7 @@
 require_relative 'utils'
 
 class PicklesHttpServer
-  class PicklesLogger
+  class Logger
     include PicklesHttpServer::Utils
 
     def initialize(log_path = "./log.txt")
@@ -29,6 +29,7 @@ class PicklesHttpServer
       log_entry = "[#{timestamp}] [#{level}] #{message}\n"
       puts log_entry
       @log_file.puts(log_entry)
+      @log_file.flush
     end
   end
 end

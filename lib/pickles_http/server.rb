@@ -11,13 +11,18 @@ class PicklesHttpServer
       @server = TCPServer.new(port)
       @router = Router.new
       @port = port
-      @logger = Logger.new if log
+      @middlewares = []
+      @logger = PicklesHttpServer::Logger.new if log
       setup_routes
     end
 
     def setup_routes
       @logger.log("ROUTES Setted", LogMode::INFO) if @logger
       @router.add_route('GET', '/', method(:handle_get_request))
+    end
+
+    def add_middleware(middleware)
+      @middlewares << middleware
     end
 
     def start
@@ -34,9 +39,11 @@ class PicklesHttpServer
       return if request_line.nil?
 
       method, path = request_line.split
+
       handler = @router.route_request(method, path)
 
       if handler
+        @middlewares.each { |middleware| middleware.call(client, method, path, @logger) }
         handler.call(client, path)
       else
         handle_unknown_request(client)

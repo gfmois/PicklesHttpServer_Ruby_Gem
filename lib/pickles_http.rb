@@ -8,4 +8,8 @@ class PicklesHttpServer
   def start
     @server.start()
   end
+
+  def use(middleware)
+    PicklesHttpServer::Server.add_middleware(middleware)
+  end
 end
