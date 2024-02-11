@@ -1,19 +1,22 @@
 require 'socket'
 require_relative 'utils'
 require_relative 'router'
+require_relative 'logger'
 
 class PicklesHttpServer
   class Server
     include PicklesHttpServer::Utils
 
-    def initialize(port)
+    def initialize(port, log = false)
       @server = TCPServer.new(port)
       @router = Router.new
       @port = port
+      @logger = Logger.new if log
       setup_routes
     end
 
     def setup_routes
+      @logger.log("ROUTES Setted", LogMode::INFO) if @logger
       @router.add_route('GET', '/', method(:handle_get_request))
     end
 

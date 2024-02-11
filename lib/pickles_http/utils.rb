@@ -12,9 +12,26 @@ module ContentTypes
   MP3 = "audio/mpeg"
 end
 
+module LogMode
+  DEBUG = 'DEBUG'
+  INFO = 'INFO'
+  WARN = "WARN"
+  ERROR = 'ERROR'
+  FATAL = "FATAL"
+
+  SEVERITIES = {
+      'DEBUG' => 0,
+      'INFO' => 1,
+      'WARN' => 2,
+      'ERROR' => 3,
+      'FATAL' => 4
+    }.freeze
+end
+
 class PicklesHttpServer
   module Utils
-    include HttpStatusCodes
-    include ContentTypes
+  include HttpStatusCodes
+  include ContentTypes
+  include LogMode
   end
 end
