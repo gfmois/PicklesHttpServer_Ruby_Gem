@@ -7,26 +7,32 @@ class PicklesHttpServer
   class Server
     include PicklesHttpServer::Utils
 
-    def initialize(port, log = false)
+    def initialize(port, log_file)
       @server = TCPServer.new(port)
       @router = Router.new
       @port = port
       @middlewares = []
-      @logger = PicklesHttpServer::Logger.new if log
-      setup_routes
+      @logger = PicklesHttpServer::Logger.new(log_file)
+      @not_found_message = 'No route here'
     end
 
-    def setup_routes
-      @logger.log("ROUTES Setted", LogMode::INFO) if @logger
-      @router.add_route('GET', '/', method(:handle_get_request))
+    def change_server_option(option, value)
+      case option
+      when 'set_not_found_message'
+        @not_found_message = value
+      end
     end
 
-    def add_middleware(middleware)
+    def add_route(method, path, handler)
+      @router.add_route(method, path, handler)
+    end
+
+    def use_middleware(middleware)
       @middlewares << middleware
     end
 
     def start
-      puts "PicklesHttpServer::Server is running on port #{@port}"
+      puts "PicklesServer is running on http://localhost:#{@port} 🔥"
       loop do
         client = @server.accept
         handle_request(client)
@@ -39,34 +45,19 @@ class PicklesHttpServer
       return if request_line.nil?
 
       method, path = request_line.split
-
       handler = @router.route_request(method, path)
 
+      @middlewares.each { |middleware| middleware.call(client, method, path, @logger) }
+
       if handler
-        @middlewares.each { |middleware| middleware.call(client, method, path, @logger) }
         handler.call(client, path)
       else
         handle_unknown_request(client)
       end
     end
 
-    def handle_get_request(client, path)
-      if path == "/"
-        send_response(client, "Hello, Pickles World!")
-      else
-        send_response(client, "404 Not Found", HttpStatusCodes::NOT_FOUND)
-      end
-    end
-
     def handle_unknown_request(client)
-      send_response(client, "Unsupported Method", HttpStatusCodes::BAD_REQUEST)
-    end
-
-    def send_response(client, body, status = HttpStatusCodes::OK)
-      client.puts "HTTP/1.1 #{status}"
-      client.puts "Content-Type: #{ContentTypes::HTML}"
-      client.puts
-      client.puts body
+      Response::send_response(client, @not_found_message, HttpStatusCodes::BAD_REQUEST)
     end
   end
 end

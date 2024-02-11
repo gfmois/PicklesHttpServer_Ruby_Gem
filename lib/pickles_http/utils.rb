@@ -5,6 +5,32 @@ module HttpStatusCodes
   INTERNAL_SERVER_ERROR = 500
 end
 
+class Response
+  def self.send_response(client, body, status = HttpStatusCodes::OK)
+    client.puts "HTTP/1.1 #{status}"
+    client.puts "Content-Type: #{ContentTypes::HTML}"
+    client.puts
+    client.puts body
+  end
+end
+
+class Middlewares
+  class << self
+    attr_accessor :catcher
+  end
+
+  self.catcher = lambda do |_, method, path, logger|
+    logger.log("[#{method}] - #{path}", LogMode::INFO)
+  end
+end
+
+module RequestMethods
+  GET = 'GET'
+  POST = 'POST'
+  PUT = 'PUT'
+  DELETE = 'DELETE'
+end
+
 module ContentTypes
   HTML = "text/html"
   JSON = "application/json"
@@ -30,8 +56,9 @@ end
 
 class PicklesHttpServer
   module Utils
-  include HttpStatusCodes
-  include ContentTypes
-  include LogMode
+    include HttpStatusCodes
+    include ContentTypes
+    include LogMode
+    include RequestMethods
   end
 end
