@@ -1,3 +1,5 @@
+require 'timeout'
+
 module HttpStatusCodes
   OK = 200
   NOT_FOUND = 404
@@ -6,15 +8,53 @@ module HttpStatusCodes
 end
 
 class Response
-  def self.send_response(client, body, status = HttpStatusCodes::OK, content_type = ContentTypes::HTML, custom_headers: [])
-    client.puts "HTTP/1.1 #{status}"
-    client.puts "Content-Type: #{content_type}"
+  def self.set_default_headers(client, status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, version: '1.1')
+    begin
+      if !client.closed?
+        client.puts "HTTP/#{version} #{status}"
+        client.puts "Content-Type: #{content_type}"
+      end
+    rescue Errno::EPIPE => e
+      puts "Error en el set_default_headers: #{e}"
+    end
+  end
 
-    custom_headers.each { |header| client.puts header }
+  def self.send_response(client, body, status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, custom_headers: [], version: '1.1')
+    set_default_headers(client, status: status, content_type: content_type, version: version)
+    modify_response(client, version: version, status: status, content_type: content_type, custom_headers: custom_headers)
 
     client.puts
     client.puts body unless body.nil?
     client.close unless client.closed?
+  end
+
+def self.modify_response(client, status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, custom_headers: [], version: '1.1')
+    modified_lines = []
+
+    # FIXME: This works cause the break, not works for me
+    while IO.select([client], nil, nil, 1)
+      ready = IO.select([client], nil, nil, 1)
+      break unless ready
+
+      if (line = client.gets).nil? || line.chomp.empty?
+        break
+      end
+
+      line = line.to_s
+      if line =~ /^HTTP\/\d+\.\d+\s+\d+\s+/
+        modified_lines << "HTTP/#{version} #{status} #{status.key?}"
+      elsif line.start_with?('Content-Type:')
+        modified_lines << "Content-Type: #{content_type}"
+      elsif line.empty?
+        custom_headers.each { |custom_header| modified_lines << custom_header }
+      else
+        modified_lines << line
+      end
+    end
+
+    modified_lines << ''
+
+    modified_lines.each { |mod_line| client.puts mod_line }
   end
 end
 
@@ -28,15 +68,13 @@ class Middlewares
   end
 
   self.cors = lambda do |client, _, _|
-    headers_cors = [
-      'Access-Control-Allow-Origin: *',
-      'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers: Content-Type, Authorization',
-      'Access-Control-Max-Age: 86400'
-    ]
-
     if !client.closed?
-      headers_cors.each { |header| client.puts header }
+      client.puts 'HTTP/1.1 200'
+      client.puts "Content-Type: application/json"
+      client.puts 'Access-Control-Allow-Origin: *'
+      client.puts 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS'
+      client.puts 'Access-Control-Allow-Headers: Content-Type, Authorization'
+      client.puts 'Access-Control-Max-Age: 86400'
       client.puts
     end
   end

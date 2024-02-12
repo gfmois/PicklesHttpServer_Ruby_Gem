@@ -10,13 +10,13 @@ class PicklesHttpServer
 
     def initialize(port, log_file)
       @server = TCPServer.new(port)
-      @port = port
       @router = Router.new
-      @middlewares = []
       @logger = PicklesHttpServer::Logger.new(log_file)
-      @not_found_message = 'No route here'
       @request_queue = Queue.new
       @write_mutex = Mutex.new
+      @port = port
+      @middlewares = []
+      @not_found_message = 'No route here'
     end
 
     def change_server_option(option, value)
@@ -80,9 +80,9 @@ class PicklesHttpServer
       Concurrent::Promises.zip(*promises).then do
         if handler
           if !client.closed?
-            handler.call(client, body, headers) 
+            handler.call(client, body, headers)
           else
-            Response::send_response(client, "Socket Closed", HttpStatusCodes::ERROR)
+            Response::send_response(client, 'Socket Closed', status: HttpStatusCodes::ERROR)
           end
         else
           handle_unknown_request(client)
@@ -95,7 +95,7 @@ class PicklesHttpServer
     end
 
     def handle_unknown_request(client)
-      Response::send_response(client, @not_found_message, HttpStatusCodes::BAD_REQUEST)
+      Response::send_response(client, @not_found_message, status: HttpStatusCodes::BAD_REQUEST)
     end
 
     def read_headers(client)
