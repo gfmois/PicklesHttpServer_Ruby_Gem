@@ -1,4 +1,4 @@
-require 'timeout'
+# frozen_string_literal: true
 
 module HttpStatusCodes
   OK = 200
