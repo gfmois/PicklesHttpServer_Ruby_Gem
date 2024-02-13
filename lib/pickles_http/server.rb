@@ -92,8 +92,7 @@ class PicklesHttpServer
       end.value!
     rescue StandardError => e
       @logger.log("Error handling request: #{e.message}", LogMode::ERROR)
-    ensure
-      client.close unless client.closed?
+      Response::send_response(client, 'Internal Server Error', status: HttpStatusCodes::INTERNAL_SERVER_ERROR) if !client.closed?
     end
 
     def handle_unknown_request(client)

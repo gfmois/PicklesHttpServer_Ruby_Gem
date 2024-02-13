@@ -21,40 +21,36 @@ class Response
 
   def self.send_response(client, body, status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, custom_headers: [], version: '1.1')
     set_default_headers(client, status: status, content_type: content_type, version: version)
-    modify_response(client, version: version, status: status, content_type: content_type, custom_headers: custom_headers)
+    
+    # FIXME: This not working well, returns headers & Http with content-type but no returns body
+    client = modify_response(client, status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, custom_headers: custom_headers)
 
     client.puts
     client.puts body unless body.nil?
     client.close unless client.closed?
   end
 
-def self.modify_response(client, status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, custom_headers: [], version: '1.1')
+  def self.reset_client(client)
+    current_host = 'localhost'
+    current_port = 8080
+
+    client.close unless client.closed?
+    
+    n_client = client = TCPSocket.new(current_host, current_port)
+    n_client
+  end
+
+  def self.modify_response(client, status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, custom_headers: [], version: '1.1')
+    client = reset_client(client)
     modified_lines = []
 
-    # FIXME: This works cause the break, not works for me
-    while IO.select([client], nil, nil, 1)
-      ready = IO.select([client], nil, nil, 1)
-      break unless ready
+    modified_lines << "HTTP/#{version} #{status}"
+    modified_lines << "Content-Type: #{content_type}"
 
-      if (line = client.gets).nil? || line.chomp.empty?
-        break
-      end
-
-      line = line.to_s
-      if line =~ /^HTTP\/\d+\.\d+\s+\d+\s+/
-        modified_lines << "HTTP/#{version} #{status} #{status.key?}"
-      elsif line.start_with?('Content-Type:')
-        modified_lines << "Content-Type: #{content_type}"
-      elsif line.empty?
-        custom_headers.each { |custom_header| modified_lines << custom_header }
-      else
-        modified_lines << line
-      end
-    end
-
-    modified_lines << ''
-
+    custom_headers.each { |custom_header| modified_lines << custom_header }
     modified_lines.each { |mod_line| client.puts mod_line }
+
+    return client
   end
 end
 
