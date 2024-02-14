@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require 'stringio'
 
 module HttpStatusCodes
   OK = 200
@@ -8,50 +9,27 @@ module HttpStatusCodes
 end
 
 class Response
-  def self.set_default_headers(client, status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, version: '1.1')
+  def self.send_response(client, body, version: '1.1', status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, custom_headers: [])
+    return if client.closed?
+
     begin
-      if !client.closed?
-        client.puts "HTTP/#{version} #{status}"
-        client.puts "Content-Type: #{content_type}"
+      client.puts "HTTP/#{version} #{status}"
+      client.puts "Content-Type: #{content_type}"
+
+      custom_headers.each do |custom_header|
+        client.puts custom_header
       end
+
+      client.puts
+      client.puts body unless body.nil?
     rescue Errno::EPIPE => e
-      puts "Error en el set_default_headers: #{e}"
+      puts "Error in send_response: #{e}"
+    ensure
+      client.close unless client.closed?
     end
   end
 
-  def self.send_response(client, body, status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, custom_headers: [], version: '1.1')
-    set_default_headers(client, status: status, content_type: content_type, version: version)
-    
-    # FIXME: This not working well, returns headers & Http with content-type but no returns body
-    client = modify_response(client, status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, custom_headers: custom_headers)
-
-    client.puts
-    client.puts body unless body.nil?
-    client.close unless client.closed?
-  end
-
-  def self.reset_client(client)
-    current_host = 'localhost'
-    current_port = 8080
-
-    client.close unless client.closed?
-    
-    n_client = client = TCPSocket.new(current_host, current_port)
-    n_client
-  end
-
-  def self.modify_response(client, status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, custom_headers: [], version: '1.1')
-    client = reset_client(client)
-    modified_lines = []
-
-    modified_lines << "HTTP/#{version} #{status}"
-    modified_lines << "Content-Type: #{content_type}"
-
-    custom_headers.each { |custom_header| modified_lines << custom_header }
-    modified_lines.each { |mod_line| client.puts mod_line }
-
-    return client
-  end
+  # TODO: Method to Replace HTTP & Content-Type from request with custom params
 end
 
 class Middlewares
@@ -63,10 +41,9 @@ class Middlewares
     logger.log("[#{method}] - #{path}", LogMode::INFO)
   end
 
+  # TODO: Make the cors customizable with adding custom headers, changing default values, etc...
   self.cors = lambda do |client, _, _|
     if !client.closed?
-      client.puts 'HTTP/1.1 200'
-      client.puts "Content-Type: application/json"
       client.puts 'Access-Control-Allow-Origin: *'
       client.puts 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS'
       client.puts 'Access-Control-Allow-Headers: Content-Type, Authorization'
