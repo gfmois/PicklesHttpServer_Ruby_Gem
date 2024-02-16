@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 require 'stringio'
+require "fcntl"
 
 module HttpStatusCodes
   OK = 200
@@ -22,6 +23,29 @@ class Response
 
       client.puts
       client.puts body unless body.nil?
+
+      socket_data = ''
+      buffer = ''
+
+      client.fcntl(Fcntl::F_SETFL, client.fcntl(Fcntl::F_GETFL) | Fcntl::O_NONBLOCK)
+
+      loop do 
+        begin
+          buffer = client.recv_nonblock(4096)
+          break if buffer.empty?
+
+          socket_data += buffer
+        rescue IO::WaitReadable, Errno::EINTR
+          IO.select([client], nil, nil, 1)
+          retry
+        rescue EOFError, Errno::ECONNRESET
+          break
+        end
+      end
+
+
+      modified_data = remove_default_headers(socket_data, version: version, status: status, content_type: ContentTypes::JSON)
+      client.puts modified_data
     rescue Errno::EPIPE => e
       puts "Error in send_response: #{e}"
     ensure
@@ -30,6 +54,10 @@ class Response
   end
 
   # TODO: Method to Replace HTTP & Content-Type from request with custom params
+  def self.remove_default_headers(data, version: '1.1', status: HttpStatusCodes::OK, content_type: ContentTypes::HTML)
+    http_pattern = "/HTTP\/\d\.\d/"
+    data.gsub(http_pattern, "HTTP/#{version} #{status}")
+  end
 end
 
 class Middlewares

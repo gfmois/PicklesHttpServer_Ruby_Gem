@@ -95,10 +95,6 @@ class PicklesHttpServer
       Response::send_response(client, 'Internal Server Error', status: HttpStatusCodes::INTERNAL_SERVER_ERROR) if !client.closed?
     end
 
-    def handle_unknown_request(client)
-      Response::send_response(client, @not_found_message, status: HttpStatusCodes::BAD_REQUEST)
-    end
-
     def read_headers(client)
       headers = {}
       loop do
