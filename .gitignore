@@ -1,3 +1,4 @@
 *.gem
 main.rb
 *.txt
+bin
