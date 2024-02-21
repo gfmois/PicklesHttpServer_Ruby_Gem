@@ -1,5 +1,6 @@
 # frozen_string_literals: true
 
+require 'io/nonblock'
 require 'stringio'
 require 'fcntl'
 
@@ -16,9 +17,7 @@ class Response
 
     begin
       send_headers(client, version, status, content_type, custom_headers)
-      # send_body(client, body)
-      client.puts
-      client.puts body
+      send_body(client, body)
     rescue Errno::EPIPE => e
       puts "Error in send_response #{e}"
     ensure
@@ -39,28 +38,20 @@ class Response
 
   def self.send_body(client, body = nil)
     return if body.nil?
+
+    # client.ioctlsocket(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
+    # client.ioctlsocket(Fcntl::FIONBIO, [1].pack('L'))
+    # client.ioctlsocket(0x8004667e, [1].pack('L'))
+    client.nonblock = true
     
-    socket_data = ''
-    buffer = ''
-
-    client.fcntl(Fcntl::F_SETFL, client.fcntl(3) | Fcntl::O_NONBLOCK)
-    # client.fcntl(4, client.fcntl(3) | Fcntl::O_NONBLOCK)
-
-    loop do
-      begin
-        buffer = client.recv_nonblock(4096)
-        break if buffer.empty?
-
-        socket_data += buffer
-      rescue IO::WaitReadable, Errno::EINTR
-        IO.select([client], nil, nil, 1)
-        retry
-      rescue EOFError, Errno::ECONNRESET
-        break
-      end
+    begin
+      client.puts(body)
+    rescue IO::WaitReadable
+      IO.select([client], nil)
+      retry
+    rescue EOFError, Errno::ECONNRESET
+      puts "Client Disconnected"
     end
-
-    client.puts socket_data
   end
 end
 
