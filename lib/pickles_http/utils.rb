@@ -39,15 +39,10 @@ class Response
   def self.send_body(client, body = nil)
     return if body.nil?
 
-    # client.ioctlsocket(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
-    # client.ioctlsocket(Fcntl::FIONBIO, [1].pack('L'))
-    # client.ioctlsocket(0x8004667e, [1].pack('L'))
-    client.nonblock = true
-    
     begin
       client.puts(body)
     rescue IO::WaitReadable
-      IO.select([client], nil)
+      IO.select([client])
       retry
     rescue EOFError, Errno::ECONNRESET
       puts "Client Disconnected"
@@ -67,11 +62,13 @@ class Middlewares
   self.cors = lambda do |client, _, _|
     return if client.closed?
 
+    # HTTP/1.1
+    # Content-Type
     client.puts 'Access-Control-Allow-Origin: *'
     client.puts 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS'
     client.puts 'Access-Control-Allow-Headers: Content-Type, Authorization'
-    client.puts 'Access-Control-Max-Age: 86400'
     client.puts
+    # Body
   end
 end
 

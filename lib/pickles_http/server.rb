@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
 require 'socket'
+require 'http/parser'
 require 'concurrent'
 require_relative 'utils'
 require_relative 'router'
 require_relative 'logger'
+
+READ_CHUNK = 1024 * 4
 
 class PicklesHttpServer
   class Server
@@ -12,7 +15,13 @@ class PicklesHttpServer
 
     def initialize(port, log_file)
       @port = port
-      @server = TCPServer.new(port)
+      @socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
+
+      addr = Socket.pack_sockaddr_in(port, '127.0.0.1')
+      @socket.bind(addr)
+      @socket.listen(Socket::SOMAXCONN)
+      @socket.setsockopt(:SOCKET, :REUSEADDR, true)
+
       @router = Router.new
       @logger = PicklesHttpServer::Logger.new(log_file)
       @request_queue = Queue.new
@@ -52,10 +61,19 @@ class PicklesHttpServer
 
     def accept_and_process_requests
       loop do
-        client = @server.accept
-        request = client.readpartial(2048)
-        @request_queue.push({ client: client, request: request })
-      end
+        client, addrinfo = @socket.accept
+        begin
+            request = client.readpartial(READ_CHUNK)
+            @request_queue.push({ client: client, request: request })
+          end
+        rescue EOFError => e
+          puts "Client closed the connection: #{e.message}"
+          puts e.backtrace.join("\n")
+          client.close
+        rescue StandardError => e
+          puts "Error in accept_and_process_requests: #{e.message}"
+          puts e.backtrace
+        end
     end
 
     def handle_request(request_queue)
