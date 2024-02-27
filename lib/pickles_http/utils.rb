@@ -11,13 +11,44 @@ module HttpStatusCodes
   BAD_REQUEST = 400
 end
 
+class SocketInterceptor
+  attr_reader :buffer
+
+  def initialize(socket)
+    @socket = socket
+    @buffer = ""
+  end
+
+  def puts(data)
+    @buffer += data + "\n"
+    @socket.puts(data)
+  end
+
+  def flush
+    @socket.flush
+  end
+end
+
+
 class Response
   def self.send_response(client, body, version: '1.1', status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, custom_headers: [])
     return if client.closed?
 
     begin
-      send_headers(client, version, status, content_type, custom_headers)
-      send_body(client, body)
+      socket_interceptor = SocketInterceptor.new(client)
+      set_headers(socket_interceptor, version, status, content_type, custom_headers)
+      set_body(socket_interceptor, body)
+      socket_interceptor.flush
+
+      intercepted_data = {
+        version: version,
+        status: status,
+        content_type: content_type,
+        custom_headers: custom_headers,
+        body: body,
+        raw_data: socket_interceptor.buffer
+      }
+      puts intercepted_data
     rescue Errno::EPIPE => e
       puts "Error in send_response #{e}"
     ensure
@@ -25,7 +56,7 @@ class Response
     end
   end
 
-  def self.send_headers(client, version, status, content_type, custom_headers)
+  def self.set_headers(client, version, status, content_type, custom_headers)
     client.puts "HTTP/#{version} #{status}"
     client.puts "Content-Type: #{content_type}"
 
@@ -34,13 +65,15 @@ class Response
     end
 
     client.puts
+    client.flush
   end
 
-  def self.send_body(client, body = nil)
+  def self.set_body(client, body = nil)
     return if body.nil?
 
     begin
       client.puts(body)
+      client.flush
     rescue IO::WaitReadable
       IO.select([client])
       retry
@@ -59,15 +92,15 @@ class Middlewares
     logger.log("[#{method}] - #{path}", LogMode::INFO)
   end
 
-  self.cors = lambda do |client, _, _|
-    return if client.closed?
+  self.cors = lambda do |request|
+    return if request.client.closed?
 
     # HTTP/1.1
     # Content-Type
-    client.puts 'Access-Control-Allow-Origin: *'
-    client.puts 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS'
-    client.puts 'Access-Control-Allow-Headers: Content-Type, Authorization'
-    client.puts
+    request.client.puts 'Access-Control-Allow-Origin: *'
+    request.client.puts 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS'
+    request.client.puts 'Access-Control-Allow-Headers: Content-Type, Authorization'
+    request.client.puts
     # Body
   end
 end
@@ -110,5 +143,11 @@ class PicklesHttpServer
     include ContentTypes
     include LogMode
     include RequestMethods
+
+    Request = Struct.new(:client, :body, :headers)
+
+    def self.parse_request(client, body, headers)
+      Request.new(client, body, headers)
+    end
   end
 end

@@ -2,3 +2,4 @@
 main.rb
 *.txt
 bin
+/examples

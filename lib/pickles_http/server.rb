@@ -85,6 +85,8 @@ class PicklesHttpServer
       headers = read_headers(request)
       body = read_body(client, headers['Content-Length'].to_i)
 
+      req_parsed = Utils.parse_request(client, body, headers)
+
       handler = @router.route_request(method, path)
       promises = []
 
@@ -97,23 +99,27 @@ class PicklesHttpServer
       @middlewares.each do |middleware|
         promises << Concurrent::Promises.future do
           @write_mutex.synchronize do
-            middleware.call(client, body, headers)
+            middleware.call(req_parsed)
           end
         end
       end
 
       Concurrent::Promises.zip(*promises).then do
-        handle_response(handler, client, body, headers)
+        handle_response(handler, req_parsed)
       end.value!
     rescue StandardError => e
       handler_error(client, e)
     end
 
-    def handle_response(handler, client, body, headers)
-      if handler && !client.closed?
-        handler.call(client, body, headers)
+    def handle_response(handler, request)
+      if handler
+        if !request.client.closed?
+          handler.call(request)
+        else
+          Response.send_response(request.client, "Socket Closed", status: HttpStatusCodes::INTERNAL_SERVER_ERROR)
+        end
       else
-        Response.send_response(client, "Socket Closed", status: HttpStatusCodes::INTERNAL_SERVER_ERROR)
+        handle_unknown_request(request.client)
       end
     end
 
