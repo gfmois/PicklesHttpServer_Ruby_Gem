@@ -24,7 +24,7 @@ class PicklesHttpServer
 
       @router = Router.new
       @logger = PicklesHttpServer::Logger.new(log_file)
-      @request_queue = Queue.new
+      @request_queue = SizedQueue.new(10)
       @write_mutex = Mutex.new
       @middlewares = []
       @not_found_message = "404: Route not found"
@@ -63,9 +63,8 @@ class PicklesHttpServer
       loop do
         client, addrinfo = @socket.accept
         begin
-            request = client.readpartial(READ_CHUNK)
-            @request_queue.push({ client: client, request: request })
-          end
+          request = client.readpartial(READ_CHUNK)
+          @request_queue.push({ client: client, request: request })
         rescue EOFError => e
           puts "Client closed the connection: #{e.message}"
           puts e.backtrace.join("\n")
@@ -74,6 +73,7 @@ class PicklesHttpServer
           puts "Error in accept_and_process_requests: #{e.message}"
           puts e.backtrace
         end
+      end
     end
 
     def handle_request(request_queue)
@@ -99,7 +99,7 @@ class PicklesHttpServer
       @middlewares.each do |middleware|
         promises << Concurrent::Promises.future do
           @write_mutex.synchronize do
-            middleware.call(req_parsed)
+            middleware.middleware.call(req_parsed, middleware.custom_headers)
           end
         end
       end

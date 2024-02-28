@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'pickles'
-  s.version     = '0.0.8'
+  s.version     = '0.0.9'
   s.summary     = 'Simple HTTP Framework'
   s.description = 'A simple Http Framework gem'
   s.authors     = ['Moisés Guerola']

@@ -1,4 +1,4 @@
-# frozen_string_literals: true
+# frozen_string_literal: true
 
 require 'io/nonblock'
 require 'stringio'
@@ -29,51 +29,63 @@ class SocketInterceptor
   end
 end
 
-
 class Response
-  def self.send_response(client, body, version: '1.1', status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, custom_headers: [])
+  class << self
+    attr_accessor :cors_headers
+  end
+
+  self.cors_headers = {}
+
+  def self.send_response(client = nil, body = nil, version: '1.1', status: HttpStatusCodes::OK, content_type: ContentTypes::HTML, custom_headers: {})
     return if client.closed?
 
     begin
-      socket_interceptor = SocketInterceptor.new(client)
-      set_headers(socket_interceptor, version, status, content_type, custom_headers)
-      set_body(socket_interceptor, body)
-      socket_interceptor.flush
+      if (client.nil? && body.nil?)
+        raise StandardError, "Client and body not set"
+      end
 
-      intercepted_data = {
-        version: version,
-        status: status,
-        content_type: content_type,
-        custom_headers: custom_headers,
-        body: body,
-        raw_data: socket_interceptor.buffer
-      }
-      puts intercepted_data
+      merged_hash = custom_headers.merge(self.cors_headers)
+
+      set_headers(client, version, status, content_type, merged_hash)
+      set_body(client, body)
+      client.flush
+
+      # intercepted_data = {
+      #   version: version,
+      #   status: status,
+      #   content_type: content_type,
+      #   headers: merged_hash,
+      #   body: body,
+      # }
+
+      # puts intercepted_data
     rescue Errno::EPIPE => e
-      puts "Error in send_response #{e}"
+      puts "Error in send_response #{e.message}"
     ensure
       client.close unless client.closed?
     end
+  end
+
+  def self.parse_request(client)
+    p client.recv(20)
   end
 
   def self.set_headers(client, version, status, content_type, custom_headers)
     client.puts "HTTP/#{version} #{status}"
     client.puts "Content-Type: #{content_type}"
 
-    custom_headers.each do |header|
-      client.puts header
+    custom_headers.each do |key, value|
+      client.puts "#{key}: #{value}"
     end
 
     client.puts
-    client.flush
   end
 
   def self.set_body(client, body = nil)
     return if body.nil?
 
     begin
-      client.puts(body)
-      client.flush
+      client.puts body
     rescue IO::WaitReadable
       IO.select([client])
       retry
@@ -85,23 +97,36 @@ end
 
 class Middlewares
   class << self
-    attr_accessor :catcher, :cors
+    attr_accessor :catcher, :cors, :default_cors_headers, :Middleware_Parser
   end
+
+  self.Middleware_Parser = Struct.new(:middleware, :custom_headers)
 
   self.catcher = lambda do |_, method, path, logger|
     logger.log("[#{method}] - #{path}", LogMode::INFO)
   end
 
-  self.cors = lambda do |request|
-    return if request.client.closed?
+  self.default_cors_headers = {
+    'Access-Control-Allow-Origin' => '*',
+    'Access-Control-Allow-Methods' => 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers' => 'Content-Type, Authorization'
+  }
 
-    # HTTP/1.1
-    # Content-Type
-    request.client.puts 'Access-Control-Allow-Origin: *'
-    request.client.puts 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS'
-    request.client.puts 'Access-Control-Allow-Headers: Content-Type, Authorization'
-    request.client.puts
-    # Body
+  self.cors = lambda do |request, custom_cors_headers = {}|
+    begin
+      merged_headers = self.default_cors_headers.merge(custom_cors_headers)
+
+      merged_headers = Hash[merged_headers.to_a.uniq]
+
+      merged_headers.each do |key, value|
+        Response.cors_headers[key] = value
+      end
+
+      return if request.client.closed?
+      request.client.flush
+    rescue StandardError => e
+      p "Error on cors Middleware: #{e.message}"
+    end
   end
 end
 

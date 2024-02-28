@@ -17,8 +17,9 @@ class PicklesHttpServer
     @socket.add_route(method, path, handler)
   end
 
-  def use(middleware)
-    @socket.use_middleware(middleware)
+  def use(middleware, custom_cors_headers = {})
+    middleware_parsed = Middlewares.Middleware_Parser.new(middleware, custom_cors_headers)
+    @socket.use_middleware(middleware_parsed)
   end
 
   def set_server_options(option, value)
