@@ -1,4 +1,4 @@
-![PICKLES_HTTP_SERVER_LOGO]("https://github.com/gfmois/PicklesHttpServer_Ruby_Gem/assets/logo.png")
+![PICKLES_HTTP_SERVER_LOGO](https://raw.githubusercontent.com/gfmois/PicklesHttpServer_Ruby_Gem/main/assets/logo.png)
 
 # PicklesHttpServer GEM
 
