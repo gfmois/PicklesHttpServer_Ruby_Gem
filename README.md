@@ -1,31 +1,97 @@
-# PicklesHttpServer
+# PicklesHttpServer GEM
 
-TODO: Delete this and the text below, and describe your gem
+__Pickles__ is a simple TCP Server created to learn ruby and gems. This HTTP Server is designed to handle incoming HTTP Requests, route them based on specified routes, and execute middlewares functions before processing each request. It provides flexibility to defining custom routes, applying middlewares, and logging server activities.
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/pickles_http_server`. To experiment with that code, run `bin/console` for an interactive prompt.
+## Features
+
+- *__Routing__*: Easily add routes for different HTTP methods and paths.
+- *__Middlewares__*: Apply middleware functions to process requests before reaching the main route handler.
+- *__Logging__*: Log server activities with customizable log levels.
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
-
-Install the gem and add to the application's Gemfile by executing:
-
-    $ bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
-
-If bundler is not being used to manage dependencies, install the gem by executing:
-
-    $ gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+> gem install pickles_http
 
 ## Usage
+### Basic Usage
 
-TODO: Write usage instructions here
+```ruby
+# frozen_string_literal: true
 
-## Development
+# Import the PicklesHttpServer Gem
+require 'pickles_http'
+require 'json'
 
-After checking out the repo, run `bin/setup` to install dependencies. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+# Create an instance of PicklesHttpServer
+server = PicklesHttpServer.new(port: 8080, log_file: false)
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+# Create request handlers
+home_handler = proc { |request|
+# Request -> .client, .body, .headers
+  Response.send_response(
+    request.client,
+    "Hello World From PicklesHttpServer Gem",
+    content_type: ContentTypes::HTML,
+    status: HttpStatusCodes::OK,
+  )
+}
+
+post_handler = lambda do |request|
+  begin
+    json_data = JSON.parse(request.body)
+
+    Response.send_response(
+      request.client,
+      "Hello #{json_data["name"]}, how are u?",
+      content_type: ContentTypes::JSON,
+      status: HttpStatusCodes::OK
+    )
+
+  rescue JSON::ParserError => e
+    p "Error Parsing JSON: #{e.message}"
+    Response.send_response(
+      request.client,
+      "Error: #{e.message}",
+      status: HttpStatusCodes::INTERNAL_SERVER_ERROR
+    )
+  end
+end
+
+# Add routes to the server
+server.add_route(RequestMethods::GET, '/', home_handler)
+server.add_route(RequestMethods::POST, "/post", post_handler)
+
+# Use Middleware
+server.use(Middleware.cors, custom_cors_headers: { 'Custom-Header' => 'Custom-Value' })
+
+# Start the server
+server.start
+```
+
+## Configuration Options
+
+- *__Port__*: Set the port on which the server will listen `(default: 8080)`
+- *__Log File__*: Enable or disable logging to a file `(default: true)`
+- *__Host__*: Set the host IP address of the server `(default: '127.0.0.1')`
+
+## Customization
+
+### Middleware
+You can create custom middleware functions and add them to the server using the `use` method. Middleware functions receive the parsed request and custom headers as parameters.
+
+```ruby
+class CustomMiddleware
+    def self.call(request, custom_headers)
+        # Process the request or modify headers
+        # ...
+    end
+end
+
+server.use(CustomMiddleware)
+```
 
 ## Contributing
+Contributions are welcome! Feel free to open issues or submit pull requests to improve the functionality, add features, or fix bugs.
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/pickles_http_server.
+## License
+This project is licensed under the MIT License - see the [LICENSE.md](https://github.com/gfmois/PicklesHttpServer_Ruby_Gem/LICENSE.md) file for details.
