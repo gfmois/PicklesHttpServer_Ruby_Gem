@@ -1,8 +1,8 @@
 require 'pickles_http/server'
 
 class PicklesHttpServer
-  def initialize(port: 8080, log_file: true)
-    @socket = PicklesHttpServer::Server.new(port, log_file)
+  def initialize(port: 8080, log_file: true, host: '127.0.0.1')
+    @socket = PicklesHttpServer::Server.new(port, log_file, host: host.to_s)
   end
 
   def start
@@ -13,6 +13,7 @@ class PicklesHttpServer
     end
   end
 
+  # Method to add new route to PiclesServer
   def add_route(method, path, handler)
     @socket.add_route(method, path, handler)
   end

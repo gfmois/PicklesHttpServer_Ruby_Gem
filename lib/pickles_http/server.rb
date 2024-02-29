@@ -13,7 +13,7 @@ class PicklesHttpServer
   class Server
     include PicklesHttpServer::Utils
 
-    def initialize(port, log_file)
+    def initialize(port, log_file, host)
       @port = port
       @socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
 
@@ -83,7 +83,8 @@ class PicklesHttpServer
       method, path, version = request.lines[0].split
 
       headers = read_headers(request)
-      body = read_body(client, headers['Content-Length'].to_i)
+      # body = read_body(client, headers[:'content-length'].to_i)
+      body = request.lines[10..-1].join
 
       req_parsed = Utils.parse_request(client, body, headers)
 
@@ -150,7 +151,7 @@ class PicklesHttpServer
     end
 
     def read_body(client, content_length)
-      content_length > 0 ? client.read(content_length) : ''
+      content_length < 0 ? client.readpartial(READ_CHUNK) : ''
     end
   end
 end
