@@ -1,3 +1,5 @@
+![PICKLES_HTTP_SERVER_LOGO]("https://github.com/gfmois/PicklesHttpServer_Ruby_Gem/assets/logo.png")
+
 # PicklesHttpServer GEM
 
 __Pickles__ is a simple TCP Server created to learn ruby and gems. This HTTP Server is designed to handle incoming HTTP Requests, route them based on specified routes, and execute middlewares functions before processing each request. It provides flexibility to defining custom routes, applying middlewares, and logging server activities.
