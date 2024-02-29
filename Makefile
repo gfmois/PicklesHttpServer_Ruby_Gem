@@ -1,11 +1,11 @@
-VERSION = 0.0.9
+VERSION = 0.0.1
 
 all: build install dev
 
 dev: main.rb
 	ruby main.rb
 install:
-	gem install pickles-$(VERSION).gem
+	gem install pickles_http-$(VERSION).gem
 uninstall:
 	gem uninstall pickles
 build:

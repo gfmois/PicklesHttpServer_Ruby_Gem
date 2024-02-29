@@ -83,7 +83,6 @@ class PicklesHttpServer
       method, path, version = request.lines[0].split
 
       headers = read_headers(request)
-      # body = read_body(client, headers[:'content-length'].to_i)
       body = request.lines[10..-1].join
 
       req_parsed = Utils.parse_request(client, body, headers)
