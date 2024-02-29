@@ -91,6 +91,7 @@ custom_middleware = lambda do |request|
     # ...
 end
 
+# Use the middleware
 server.use(custom_middleware)
 ```
 
