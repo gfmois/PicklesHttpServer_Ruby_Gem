@@ -82,14 +82,15 @@ server.start
 You can create custom middleware functions and add them to the server using the `use` method. Middleware functions receive the parsed request and custom headers as parameters.
 
 ```ruby
-class CustomMiddleware
-    def self.call(request, custom_headers)
-        # Process the request or modify headers
-        # ...
-    end
+custom_middleware = lambda do |request|
+    # Do something with the request
+    # client: request.client
+    # body: request.body
+    # headers: request.headers
+    # ...
 end
 
-server.use(CustomMiddleware)
+server.use(custom_middleware)
 ```
 
 ## Contributing
