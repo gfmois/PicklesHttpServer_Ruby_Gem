@@ -11,6 +11,7 @@ __Pickles__ is a simple TCP Server created to learn ruby and gems. This HTTP Ser
 - *__Logging__*: Log server activities with customizable log levels.
 
 ## Installation
+> RubyGems URL: https://rubygems.org/gems/pickles_http
 
 > gem install pickles_http
 
