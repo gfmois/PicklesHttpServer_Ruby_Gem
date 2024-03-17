@@ -1,6 +1,6 @@
 VERSION = 0.0.1
 
-all: build install dev
+all: build install
 
 dev: main.rb
 	ruby main.rb

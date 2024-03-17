@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'socket'
-require 'http/parser'
 require 'concurrent'
 require_relative 'utils'
 require_relative 'router'

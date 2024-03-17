@@ -7,8 +7,6 @@ server = PicklesHttpServer.new(port: 8080, log_file: false)
 
 # Request -> .client, .body, .headers
 home_handler = proc { |request|
-  p request
-
   Response.send_response(
     request.client,
     "Hello World From PicklesHttpServer Gem",
